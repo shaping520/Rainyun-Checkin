@@ -492,9 +492,27 @@ def run():
         # 2. 获取所有日志内容
         log_content = log_capture_string.getvalue()
 
-        # 3. 发送通知
+        # 3. 提取关键结果，只推送摘要
+        summary_lines = []
+        for line in log_content.splitlines():
+            # 只保留关键信息行
+            if any(kw in line for kw in [
+                "雨云签到 v",
+                "登录成功",
+                "登录失败",
+                "今日已签到",
+                "验证码通过",
+                "验证码重试次数过多",
+                "当前剩余积分",
+                "任务执行成功",
+                "脚本执行异常",
+                "签到失败",
+            ]):
+                summary_lines.append(line)
+
+        summary = "\n".join(summary_lines) if summary_lines else "签到流程结束，详见日志"
         logger.info("正在发送通知...")
-        send("雨云签到", log_content)
+        send("雨云签到", summary)
 
         # 4. 释放内存
         log_capture_string.close()
