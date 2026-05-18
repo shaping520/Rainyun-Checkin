@@ -4,14 +4,14 @@ name: Checkin
 # 触发条件
 on:
     workflow_dispatch:
-    # 定时执行
+    # 定时执行 (北京时间 14:00)
     schedule:
-      - cron: '0 0 * * *'
+      - cron: '0 6 * * *'
 
 # 工作
 jobs:
   checkin:
-    runs-on: ubuntu-latest  # 使用 16GB 内存的 Linux
+    runs-on: ubuntu-latest
     
     steps:
     - name: 检出代码
@@ -28,12 +28,25 @@ jobs:
     - name: 运行
       run: python -u rainyun.py
       env:
+        ACCOUNT_COUNT: ${{ secrets.ACCOUNT_COUNT }}
+        # 账号1（必填）
+        RAINYUN_USER_1: ${{ secrets.RAINYUN_USER_1 }}
+        RAINYUN_PWD_1: ${{ secrets.RAINYUN_PWD_1 }}
+        # 账号2（选填）
+        RAINYUN_USER_2: ${{ secrets.RAINYUN_USER_2 }}
+        RAINYUN_PWD_2: ${{ secrets.RAINYUN_PWD_2 }}
+        # 账号3（选填）
+        RAINYUN_USER_3: ${{ secrets.RAINYUN_USER_3 }}
+        RAINYUN_PWD_3: ${{ secrets.RAINYUN_PWD_3 }}
+        # 账号4（选填）
+        RAINYUN_USER_4: ${{ secrets.RAINYUN_USER_4 }}
+        RAINYUN_PWD_4: ${{ secrets.RAINYUN_PWD_4 }}
+        # 账号5（选填）
+        RAINYUN_USER_5: ${{ secrets.RAINYUN_USER_5 }}
+        RAINYUN_PWD_5: ${{ secrets.RAINYUN_PWD_5 }}
+        # 兼容旧配置（只有1个账号时可用）
         RAINYUN_USER: ${{ secrets.RAINYUN_USER }}
         RAINYUN_PWD: ${{ secrets.RAINYUN_PWD }}
-        # TIMEOUT: ${{ secrets.TIMEOUT }}
-        # Telegram 通知配置
-        TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-        TG_USER_ID: ${{ secrets.TG_USER_ID }}
-        # 企业微信机器人通知
+        # 企业微信通知
         QYWX_KEY: ${{ secrets.QYWX_KEY }}
         HITOKOTO: 'false'

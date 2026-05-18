@@ -365,7 +365,8 @@ def compute_similarity(img1_path, img2_path):
     return similarity, len(good)
 
 
-def run():
+def run_single_account(user, pwd, account_index=None):
+    """执行单个账号签到"""
     ctx = None
     driver = None
     temp_dir = None
@@ -374,19 +375,17 @@ def run():
         # 从环境变量读取配置
         timeout = int(os.environ.get("TIMEOUT", "15"))
         max_delay = int(os.environ.get("MAX_DELAY", "90"))
-        user = os.environ.get("RAINYUN_USER", "")
-        pwd = os.environ.get("RAINYUN_PWD", "")
         # GitHub Action 无状态
         debug = True
         # GitHub Actions 环境一定是linux
         linux = True
 
-        # 检查必要配置
         if not user or not pwd:
-            logger.error("请设置 RAINYUN_USER 和 RAINYUN_PWD 环境变量")
-            return
+            logger.error(f"账号 {account_index} 配置缺失，跳过")
+            return False
 
-        logger.info(f"━━━━━━ 雨云签到 v{APP_VERSION} ━━━━━━")
+        tag = f"账号{account_index}" if account_index else ""
+        logger.info(f"━━━━━━ 雨云签到 v{APP_VERSION} {tag} ━━━━━━")
 
         delay = random.randint(0, max_delay)
         delay_sec = random.randint(0, 60)
@@ -512,12 +511,46 @@ def run():
 
         summary = "\n".join(summary_lines) if summary_lines else "签到流程结束，详见日志"
         logger.info("正在发送通知...")
-        send("雨云签到", summary)
+        title = f"雨云签到 账号{account_index}" if account_index else "雨云签到"
+        send(title, summary)
+        return True
 
         # 4. 释放内存
         log_capture_string.close()
         if temp_dir and not debug:
             shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def run():
+    """支持多账号签到，从环境变量读取账号列表"""
+    account_count = int(os.environ.get("ACCOUNT_COUNT", "1"))
+    logger.info(f"共 {account_count} 个账号需要签到")
+    
+    # 收集所有账号结果
+    all_results = []
+    
+    for i in range(1, account_count + 1):
+        user = os.environ.get(f"RAINYUN_USER_{i}", os.environ.get("RAINYUN_USER", ""))
+        pwd = os.environ.get(f"RAINYUN_PWD_{i}", os.environ.get("RAINYUN_PWD", ""))
+        
+        if i > 1:
+            # 多账号之间随机延迟，避免同时请求
+            delay = random.randint(5, 15)
+            logger.info(f"等待 {delay} 秒后处理下一个账号...")
+            time.sleep(delay)
+        
+        all_results.append((i, user, pwd))
+    
+    success_count = 0
+    for idx, user, pwd in all_results:
+        try:
+            ok = run_single_account(user, pwd, account_index=idx if account_count > 1 else None)
+            if ok:
+                success_count += 1
+        except Exception as e:
+            logger.error(f"账号 {idx} 执行异常: {e}")
+    
+    logger.info(f"签到完成: {success_count}/{account_count} 个账号成功")
 
 
 if __name__ == "__main__":
