@@ -36,3 +36,4 @@ jobs:
         TG_USER_ID: ${{ secrets.TG_USER_ID }}
         # 企业微信机器人通知
         QYWX_KEY: ${{ secrets.QYWX_KEY }}
+        HITOKOTO: 'false'
