@@ -12,39 +12,32 @@ on:
 jobs:
   checkin:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: 检出代码
       uses: actions/checkout@v4
-      
+
     - name: 设置 Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-        
+
     - name: 安装依赖
       run: pip install -r requirements.txt
-      
+
     - name: 运行
       run: python -u rainyun.py
       env:
+        # 多账号（推荐）：格式 user1|pwd1&user2|pwd2
+        RAINYUN_ACCOUNTS: ${{ secrets.RAINYUN_ACCOUNTS }}
+        # 兼容旧配置（优先级低于 RAINYUN_ACCOUNTS）
         ACCOUNT_COUNT: ${{ secrets.ACCOUNT_COUNT }}
-        # 账号1（必填）
         RAINYUN_USER_1: ${{ secrets.RAINYUN_USER_1 }}
         RAINYUN_PWD_1: ${{ secrets.RAINYUN_PWD_1 }}
-        # 账号2（选填）
         RAINYUN_USER_2: ${{ secrets.RAINYUN_USER_2 }}
         RAINYUN_PWD_2: ${{ secrets.RAINYUN_PWD_2 }}
-        # 账号3（选填）
         RAINYUN_USER_3: ${{ secrets.RAINYUN_USER_3 }}
         RAINYUN_PWD_3: ${{ secrets.RAINYUN_PWD_3 }}
-        # 账号4（选填）
-        RAINYUN_USER_4: ${{ secrets.RAINYUN_USER_4 }}
-        RAINYUN_PWD_4: ${{ secrets.RAINYUN_PWD_4 }}
-        # 账号5（选填）
-        RAINYUN_USER_5: ${{ secrets.RAINYUN_USER_5 }}
-        RAINYUN_PWD_5: ${{ secrets.RAINYUN_PWD_5 }}
-        # 兼容旧配置（只有1个账号时可用）
         RAINYUN_USER: ${{ secrets.RAINYUN_USER }}
         RAINYUN_PWD: ${{ secrets.RAINYUN_PWD }}
         # 企业微信通知

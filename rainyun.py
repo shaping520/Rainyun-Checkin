@@ -522,35 +522,52 @@ def run_single_account(user, pwd, account_index=None):
 
 
 def run():
-    """支持多账号签到，从环境变量读取账号列表"""
-    account_count = int(os.environ.get("ACCOUNT_COUNT", "1"))
-    logger.info(f"共 {account_count} 个账号需要签到")
+    """支持多账号签到，优先从 RAINYUN_ACCOUNTS 读取（格式: user1|pwd1&user2|pwd2）"""
+    # 方式1：单个变量多账号 (推荐)
+    accounts_str = os.environ.get("RAINYUN_ACCOUNTS", "").strip()
     
-    # 收集所有账号结果
-    all_results = []
+    if accounts_str:
+        accounts = []
+        for pair in accounts_str.split("&"):
+            parts = pair.split("|", 1)
+            if len(parts) == 2:
+                accounts.append((parts[0].strip(), parts[1].strip()))
+        logger.info(f"RAINYUN_ACCOUNTS: 共 {len(accounts)} 个账号")
+    else:
+        # 方式2：兼容旧配置 (ACCOUNT_COUNT + 编号secrets)
+        account_count = int(os.environ.get("ACCOUNT_COUNT", "0"))
+        accounts = []
+        for i in range(1, account_count + 1):
+            u = os.environ.get(f"RAINYUN_USER_{i}", "")
+            p = os.environ.get(f"RAINYUN_PWD_{i}", "")
+            if u and p:
+                accounts.append((u, p))
+        # 方式3：单个账号兼容 (RAINYUN_USER + RAINYUN_PWD)
+        if not accounts:
+            u = os.environ.get("RAINYUN_USER", "")
+            p = os.environ.get("RAINYUN_PWD", "")
+            if u and p:
+                accounts = [(u, p)]
+        logger.info(f"兼容模式: 共 {len(accounts)} 个账号")
     
-    for i in range(1, account_count + 1):
-        user = os.environ.get(f"RAINYUN_USER_{i}", os.environ.get("RAINYUN_USER", ""))
-        pwd = os.environ.get(f"RAINYUN_PWD_{i}", os.environ.get("RAINYUN_PWD", ""))
-        
-        if i > 1:
-            # 多账号之间随机延迟，避免同时请求
+    if not accounts:
+        logger.error("未找到任何账号配置，请设置 RAINYUN_ACCOUNTS 环境变量")
+        return
+    
+    success_count = 0
+    for idx, (user, pwd) in enumerate(accounts, 1):
+        if idx > 1:
             delay = random.randint(5, 15)
             logger.info(f"等待 {delay} 秒后处理下一个账号...")
             time.sleep(delay)
-        
-        all_results.append((i, user, pwd))
-    
-    success_count = 0
-    for idx, user, pwd in all_results:
         try:
-            ok = run_single_account(user, pwd, account_index=idx if account_count > 1 else None)
+            ok = run_single_account(user, pwd, account_index=idx if len(accounts) > 1 else None)
             if ok:
                 success_count += 1
         except Exception as e:
             logger.error(f"账号 {idx} 执行异常: {e}")
     
-    logger.info(f"签到完成: {success_count}/{account_count} 个账号成功")
+    logger.info(f"签到完成: {success_count}/{len(accounts)} 个账号成功")
 
 
 if __name__ == "__main__":
