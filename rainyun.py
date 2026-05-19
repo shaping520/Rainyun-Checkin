@@ -206,9 +206,12 @@ def get_element_size(element) -> tuple[float, float]:
     return float(width), float(height)
 
 
-def process_captcha(ctx: RuntimeContext, retry_count: int = 0):
+def process_captcha(ctx: RuntimeContext, retry_count_list=None):
+    if retry_count_list is None:
+        retry_count_list = [0]
+    retry_count = retry_count_list[0]
     if retry_count >= CAPTCHA_RETRY_LIMIT:
-        logger.error("验证码重试次数过多，任务失败")
+        logger.error(f"验证码重试 {retry_count} 次后失败，任务终止")
         return False
     try:
         download_captcha_img(ctx)
@@ -266,7 +269,7 @@ def process_captcha(ctx: RuntimeContext, retry_count: int = 0):
                 time.sleep(5)
                 result_el = ctx.wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="tcOperation"]')))
                 if 'show-success' in result_el.get_attribute("class"):
-                    logger.info("验证码通过")
+                    logger.info(f"验证码通过（重试 {retry_count} 次后成功）")
                     return True
                 else:
                     logger.error("验证码未通过，正在重试")
@@ -279,7 +282,8 @@ def process_captcha(ctx: RuntimeContext, retry_count: int = 0):
         time.sleep(2)
         reload_btn.click()
         time.sleep(2)
-        return process_captcha(ctx, retry_count + 1)
+        retry_count_list[0] = retry_count + 1
+        return process_captcha(ctx, retry_count_list)
     except (TimeoutException, ValueError, CaptchaRetryableError) as e:
         # 修复：仅捕获预期异常（超时、解析失败、下载失败），其他程序错误直接抛出便于排查
         logger.error(f"验证码处理异常: {type(e).__name__} - {e}")
@@ -289,7 +293,8 @@ def process_captcha(ctx: RuntimeContext, retry_count: int = 0):
             time.sleep(2)
             reload_btn.click()
             time.sleep(2)
-            return process_captcha(ctx, retry_count + 1)
+            retry_count_list[0] = retry_count + 1
+        return process_captcha(ctx, retry_count_list)
         except Exception as refresh_error:
             logger.error(f"无法刷新验证码，放弃重试: {refresh_error}")
             return False
@@ -454,10 +459,11 @@ def run_single_account(user, pwd, account_index=None):
         
         logger.info("处理验证码")
         ctx.driver.switch_to.frame("tcaptcha_iframe_dy")
-        if not process_captcha(ctx):
-            # 失败时尝试记录当前页面源码的关键部分，方便排查
-            logger.error(f"验证码重试次数过多，任务失败。当前页面状态: {ctx.driver.current_url}")
-            raise Exception("验证码识别重试次数过多，签到失败")
+        captcha_retry_count = [0]
+        if not process_captcha(ctx, captcha_retry_count):
+            failed = captcha_retry_count[0]
+            logger.error(f"验证码重试 {failed} 次后失败，任务终止。当前页面状态: {ctx.driver.current_url}")
+            raise Exception(f"验证码重试 {failed} 次后失败，签到失败")
         
         ctx.driver.switch_to.default_content()
         
@@ -501,7 +507,7 @@ def run_single_account(user, pwd, account_index=None):
                 "登录失败",
                 "今日已签到",
                 "验证码通过",
-                "验证码重试次数过多",
+                "验证码重试 ",
                 "当前剩余积分",
                 "任务执行成功",
                 "脚本执行异常",
