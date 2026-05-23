@@ -516,10 +516,8 @@ def run_single_account(user, pwd, account_index=None):
                 summary_lines.append(line)
 
         summary = "\n".join(summary_lines) if summary_lines else "签到流程结束，详见日志"
-        logger.info("正在发送通知...")
-        title = f"雨云签到 账号{account_index}" if account_index else "雨云签到"
-        send(title, summary)
-        return True
+        # 不再逐账号发送，改为汇总后统一发送（由 run() 汇总）
+        return summary
 
         # 4. 释放内存
         log_capture_string.close()
@@ -560,6 +558,7 @@ def run():
         logger.error("未找到任何账号配置，请设置 RAINYUN_ACCOUNTS 环境变量")
         return
     
+    all_summaries = []
     success_count = 0
     for idx, (user, pwd) in enumerate(accounts, 1):
         if idx > 1:
@@ -567,13 +566,30 @@ def run():
             logger.info(f"等待 {delay} 秒后处理下一个账号...")
             time.sleep(delay)
         try:
-            ok = run_single_account(user, pwd, account_index=idx if len(accounts) > 1 else None)
-            if ok:
+            result = run_single_account(user, pwd, account_index=idx if len(accounts) > 1 else None)
+            if result and result is not True:
+                # result 是摘要字符串
+                label = f"账号{idx}" if len(accounts) > 1 else ""
+                if label:
+                    all_summaries.append(f"【{label}】\n{result}")
+                else:
+                    all_summaries.append(result)
                 success_count += 1
+            elif result is True:
+                success_count += 1
+            else:
+                label = f"账号{idx}" if len(accounts) > 1 else ""
+                all_summaries.append(f"【{label}】签到失败")
         except Exception as e:
             logger.error(f"账号 {idx} 执行异常: {e}")
+            label = f"账号{idx}" if len(accounts) > 1 else ""
+            all_summaries.append(f"【{label}】执行异常: {e}")
     
-    logger.info(f"签到完成: {success_count}/{len(accounts)} 个账号成功")
+    # 汇总发送一条通知
+    combined = "\n".join(all_summaries) if all_summaries else "无签到结果"
+    title = f"雨云签到 {success_count}/{len(accounts)}成功"
+    logger.info(f"签到完成: {success_count}/{len(accounts)} 个账号成功，发送汇总通知")
+    send(title, combined)
 
 
 if __name__ == "__main__":
