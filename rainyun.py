@@ -294,7 +294,7 @@ def process_captcha(ctx: RuntimeContext, retry_count_list=None):
             reload_btn.click()
             time.sleep(2)
             retry_count_list[0] = retry_count + 1
-        return process_captcha(ctx, retry_count_list)
+            return process_captcha(ctx, retry_count_list)
         except Exception as refresh_error:
             logger.error(f"无法刷新验证码，放弃重试: {refresh_error}")
             return False
