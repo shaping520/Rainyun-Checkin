@@ -6,7 +6,7 @@ on:
     workflow_dispatch:
     # 定时执行 (北京时间 14:00)
     schedule:
-      - cron: '0 6 * * *'
+      - cron: '50 3 * * *'
 
 # 工作
 jobs:
@@ -14,8 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 检出代码
-      uses: actions/checkout@v4
+    - name: 检出代�?      uses: actions/checkout@v4
 
     - name: 设置 Python
       uses: actions/setup-python@v5
@@ -30,8 +29,7 @@ jobs:
       env:
         # 多账号（推荐）：格式 user1|pwd1&user2|pwd2
         RAINYUN_ACCOUNTS: ${{ secrets.RAINYUN_ACCOUNTS }}
-        # 兼容旧配置（优先级低于 RAINYUN_ACCOUNTS）
-        ACCOUNT_COUNT: ${{ secrets.ACCOUNT_COUNT }}
+        # 兼容旧配置（优先级低�?RAINYUN_ACCOUNTS�?        ACCOUNT_COUNT: ${{ secrets.ACCOUNT_COUNT }}
         RAINYUN_USER_1: ${{ secrets.RAINYUN_USER_1 }}
         RAINYUN_PWD_1: ${{ secrets.RAINYUN_PWD_1 }}
         RAINYUN_USER_2: ${{ secrets.RAINYUN_USER_2 }}

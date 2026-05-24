@@ -497,10 +497,18 @@ def run_single_account(user, pwd, account_index=None):
         # 2. 获取所有日志内容
         log_content = log_capture_string.getvalue()
 
-        # 3. 提取关键结果，只推送摘要
+        # 3. 提取关键结果，只推送摘要（按账号过滤，避免多账号日志混淆）
+        tag = f"账号{account_index}" if account_index else ""
+        in_target = False
         summary_lines = []
         for line in log_content.splitlines():
-            # 只保留关键信息行
+            # 遇到目标账号的头部开始记录，或在单账号/非多账号场景下记录所有关键行
+            if tag and f"━━━━━━ 雨云签到 v{APP_VERSION} {tag} ━━━━━━" in line:
+                in_target = True
+            elif tag and f"━━━━━━ 雨云签到 v{APP_VERSION} 账号" in line and f"{tag} ━" not in line:
+                in_target = False
+            if in_target or (not tag and "━━━━━━ 雨云签到 v" in line):
+                continue  # 跳过其他账号的头部行
             if any(kw in line for kw in [
                 "雨云签到 v",
                 "登录成功",
@@ -586,7 +594,7 @@ def run():
             all_summaries.append(f"【{label}】执行异常: {e}")
     
     # 汇总发送一条通知
-    combined = "\n".join(all_summaries) if all_summaries else "无签到结果"
+    combined = "\n\n".join(all_summaries) if all_summaries else "无签到结果"
     title = f"雨云签到 {success_count}/{len(accounts)}成功"
     logger.info(f"签到完成: {success_count}/{len(accounts)} 个账号成功，发送汇总通知")
     send(title, combined)
