@@ -431,6 +431,16 @@ def run_single_account(user, pwd, account_index=None):
         logger.info("正在转到赚取积分页")
         ctx.driver.get(build_app_url("/account/reward/earn"))
 
+        # 获取签到前的积分
+        before_points = None
+        try:
+            points_raw = ctx.wait.until(EC.visibility_of_element_located((By.XPATH,
+                '//*[@id="app"]/div[1]/div[3]/div[2]/div/div/div[2]/div[1]/div[1]/div/p/div/h3'))).get_attribute("textContent")
+            before_points = int(''.join(re.findall(r'\d+', points_raw)))
+            logger.info(f"签到前积分: {before_points}")
+        except Exception:
+            pass
+
         # 检查签到状态：先找"领取奖励"按钮，找不到就检查是否已签到
         try:
             # 使用显示等待寻找按钮
@@ -449,8 +459,9 @@ def run_single_account(user, pwd, account_index=None):
                     try:
                         points_raw = ctx.wait.until(EC.visibility_of_element_located((By.XPATH,
                             '//*[@id="app"]/div[1]/div[3]/div[2]/div/div/div[2]/div[1]/div[1]/div/p/div/h3'))).get_attribute("textContent")
-                        current_points = int(''.join(re.findall(r'\d+', points_raw)))
-                        logger.info(f"当前剩余积分: {current_points} | 约为 {current_points / POINTS_TO_CNY_RATE:.2f} 元")
+                        after_points = int(''.join(re.findall(r'\d+', points_raw)))
+                        earned = after_points - before_points if before_points else 0
+                        logger.info(f"当前剩余积分: {after_points} | 已签到(+{earned}) | 约为 {after_points / POINTS_TO_CNY_RATE:.2f} 元")
                     except Exception:
                         logger.info("无法获取当前积分信息")
                     return
@@ -474,8 +485,9 @@ def run_single_account(user, pwd, account_index=None):
             points_raw = ctx.wait.until(EC.visibility_of_element_located((By.XPATH,
                                      '//*[@id="app"]/div[1]/div[3]/div[2]/div/div/div[2]/div[1]/div[1]/div/p/div/h3'))).get_attribute(
                 "textContent")
-            current_points = int(''.join(re.findall(r'\d+', points_raw)))
-            logger.info(f"当前剩余积分: {current_points} | 约为 {current_points / POINTS_TO_CNY_RATE:.2f} 元")
+            after_points = int(''.join(re.findall(r'\d+', points_raw)))
+            earned = after_points - before_points if before_points else 0
+            logger.info(f"当前剩余积分: {after_points} | +{earned} | 约为 {after_points / POINTS_TO_CNY_RATE:.2f} 元")
         except Exception as e:
             logger.warning(f"获取积分信息失败: {e}")
         
