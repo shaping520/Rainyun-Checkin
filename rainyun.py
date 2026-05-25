@@ -507,6 +507,10 @@ def run_single_account(user, pwd, account_index=None):
                 pass
 
         # 2. 获取所有日志内容
+        try:
+            logger.removeHandler(log_capture_handler)
+        except Exception:
+            pass
         log_content = log_capture_string.getvalue()
 
         # 3. 提取关键结果，只推送摘要（按账号过滤，避免多账号日志混淆）
@@ -519,8 +523,9 @@ def run_single_account(user, pwd, account_index=None):
                 in_target = True
             elif tag and f"━━━━━━ 雨云签到 v{APP_VERSION} 账号" in line and f"{tag} ━" not in line:
                 in_target = False
-            if in_target or (not tag and "━━━━━━ 雨云签到 v" in line):
-                continue  # 跳过其他账号的头部行
+            # 多账号：跳过非目标账号的行；单账号：跳过头部行
+            if (tag and not in_target) or (not tag and "━━━━━━ 雨云签到 v" in line):
+                continue
             if any(kw in line for kw in [
                 "雨云签到 v",
                 "登录成功",
@@ -536,13 +541,15 @@ def run_single_account(user, pwd, account_index=None):
                 summary_lines.append(line)
 
         summary = "\n".join(summary_lines) if summary_lines else "签到流程结束，详见日志"
-        # 不再逐账号发送，改为汇总后统一发送（由 run() 汇总）
-        return summary
-
-        # 4. 释放内存
-        log_capture_string.close()
+        # 清理
+        try:
+            log_capture_string.close()
+        except Exception:
+            pass
         if temp_dir and not debug:
             shutil.rmtree(temp_dir, ignore_errors=True)
+        # 不再逐账号发送，改为汇总后统一发送（由 run() 汇总）
+        return summary
 
 
 def run():
