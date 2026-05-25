@@ -1,35 +1,30 @@
-# 文件: .github/workflows/ci.yml
 name: Checkin
 
-# 触发条件
 on:
-    workflow_dispatch:
-    # 定时执行 (北京时间 14:00)
-    schedule:
-      - cron: '50 3 * * *'
+  workflow_dispatch:
+  schedule:
+    - cron: '50 3 * * *'
 
-# 工作
 jobs:
   checkin:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 检出代�?      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    - name: 设置 Python
+    - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
-    - name: 安装依赖
+    - name: Install deps
       run: pip install -r requirements.txt
 
-    - name: 运行
+    - name: Run checkin
       run: python -u rainyun.py
       env:
-        # 多账号（推荐）：格式 user1|pwd1&user2|pwd2
         RAINYUN_ACCOUNTS: ${{ secrets.RAINYUN_ACCOUNTS }}
-        # 兼容旧配置（优先级低�?RAINYUN_ACCOUNTS�?        ACCOUNT_COUNT: ${{ secrets.ACCOUNT_COUNT }}
+        ACCOUNT_COUNT: ${{ secrets.ACCOUNT_COUNT }}
         RAINYUN_USER_1: ${{ secrets.RAINYUN_USER_1 }}
         RAINYUN_PWD_1: ${{ secrets.RAINYUN_PWD_1 }}
         RAINYUN_USER_2: ${{ secrets.RAINYUN_USER_2 }}
@@ -38,6 +33,5 @@ jobs:
         RAINYUN_PWD_3: ${{ secrets.RAINYUN_PWD_3 }}
         RAINYUN_USER: ${{ secrets.RAINYUN_USER }}
         RAINYUN_PWD: ${{ secrets.RAINYUN_PWD }}
-        # 企业微信通知
         QYWX_KEY: ${{ secrets.QYWX_KEY }}
         HITOKOTO: 'false'
