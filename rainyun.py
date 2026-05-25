@@ -542,10 +542,6 @@ def run_single_account(user, pwd, account_index=None):
 
         summary = "\n".join(summary_lines) if summary_lines else "签到流程结束，详见日志"
         # 清理
-        try:
-            log_capture_string.close()
-        except Exception:
-            pass
         if temp_dir and not debug:
             shutil.rmtree(temp_dir, ignore_errors=True)
         # 不再逐账号发送，改为汇总后统一发送（由 run() 汇总）
