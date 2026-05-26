@@ -104,7 +104,7 @@ def do_login(ctx: RuntimeContext, user: str, pwd: str) -> bool:
     try:
         login_captcha = ctx.wait.until(EC.visibility_of_element_located((By.ID, 'tcaptcha_iframe_dy')))
         logger.warning("触发验证码！")
-        ctx.driver.switch_to.frame("tcaptcha_iframe_dy")
+        ctx.wait.until(EC.frame_to_be_available_and_switch_to_it((By.ID, "tcaptcha_iframe_dy")))
         if not process_captcha(ctx):
             logger.error("登录验证码识别失败")
             return False
@@ -469,7 +469,12 @@ def run_single_account(user, pwd, account_index=None):
             raise Exception("未找到签到按钮，且未检测到已签到状态，可能页面结构已变更")
         
         logger.info("处理验证码")
-        ctx.driver.switch_to.frame("tcaptcha_iframe_dy")
+        try:
+            ctx.wait.until(EC.frame_to_be_available_and_switch_to_it((By.ID, "tcaptcha_iframe_dy")))
+        except TimeoutException:
+            logger.error("验证码 iframe 加载超时")
+            ctx.driver.switch_to.default_content()
+            raise
         captcha_retry_count = [0]
         if not process_captcha(ctx, captcha_retry_count):
             failed = captcha_retry_count[0]
