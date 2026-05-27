@@ -3,6 +3,7 @@ name: Checkin
 on:
   workflow_dispatch:
   schedule:
+    # Scheduled daily at 03:50 UTC (11:50 Beijing)
     - cron: '50 3 * * *'
   push:
     branches: [ main ]
