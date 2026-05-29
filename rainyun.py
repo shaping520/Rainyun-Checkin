@@ -376,6 +376,7 @@ def run_single_account(user, pwd, account_index=None):
     driver = None
     temp_dir = None
     debug = False
+    _failed = False
     try:
         # 从环境变量读取配置
         timeout = int(os.environ.get("TIMEOUT", "15"))
@@ -500,6 +501,7 @@ def run_single_account(user, pwd, account_index=None):
         
     except Exception as e:
         logger.error(f"脚本执行异常终止: {e}")
+        _failed = True
 
     finally:
         # === 清理资源 ===
@@ -550,6 +552,8 @@ def run_single_account(user, pwd, account_index=None):
         if temp_dir and not debug:
             shutil.rmtree(temp_dir, ignore_errors=True)
         # 不再逐账号发送，改为汇总后统一发送（由 run() 汇总）
+        if _failed:
+            return None
         return summary
 
 
