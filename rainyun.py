@@ -26,26 +26,30 @@ from config import (
     APP_BASE_URL,
     APP_VERSION,
     CAPTCHA_RETRY_LIMIT,
+    CHECKIN_RETRY_DELAY,
+    CHECKIN_RETRY_LIMIT,
     COOKIE_FILE,
     DOWNLOAD_MAX_RETRIES,
     DOWNLOAD_RETRY_DELAY,
     DOWNLOAD_TIMEOUT,
-    POINTS_TO_CNY_RATE,
-)
+    POINTS_TO_CNY_RATE,)
+
 
 # 自定义异常：验证码处理过程中可重试的错误
 class CaptchaRetryableError(Exception):
     """可重试的验证码处理错误（如下载失败、网络问题等）"""
     pass
 
+
 try:
     from notify import send
-    print("✅ 通知模块加载成功")
+    print("[OK] notify模块加载成功")
 except Exception as e:
-    print(f"⚠️ 通知模块加载失败：{e}")
+    print(f"[WARN] 通知模块加载失败: {e}")
 
     def send(title, content):
         pass
+
 
 # 创建一个内存缓冲区，用于存储所有日志
 log_capture_string = io.StringIO()
@@ -59,6 +63,7 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 string_handler = logging.StreamHandler(log_capture_string)
 string_handler.setFormatter(formatter)
 logger.addHandler(string_handler)
+
 
 @dataclass
 class RuntimeContext:
@@ -140,7 +145,7 @@ def init_selenium(debug: bool, linux: bool) -> WebDriver:
         if os.path.exists(chromedriver_path):
             return webdriver.Chrome(service=Service(chromedriver_path), options=ops)
         return webdriver.Chrome(service=Service("./chromedriver"), options=ops)
-    return webdriver.Chrome(service=Service("chromedriver.exe"), options=ops)
+    return webdriver.Chrome(service=Service(os.path.join(os.path.dirname(os.path.abspath(__file__)), "chromedriver.exe")), options=ops)
 
 
 def download_image(url: str, output_path: str) -> bool:
@@ -384,8 +389,8 @@ def run_single_account(user, pwd, account_index=None):
         # GitHub Action 无状态
         debug = True
         # GitHub Actions 环境一定是linux
-        linux = True
-
+        # Auto-detect platform
+        linux = os.name != "nt"
         if not user or not pwd:
             logger.error(f"账号 {account_index} 配置缺失，跳过")
             return False
@@ -398,21 +403,21 @@ def run_single_account(user, pwd, account_index=None):
         # 可选：随机延迟（可用于避免集中请求）
         # logger.info(f"随机延时等待 {delay} 分钟 {delay_sec} 秒")
         # time.sleep(delay * 60 + delay_sec)
-        
+
         logger.info("初始化 ddddocr")
         ocr = ddddocr.DdddOcr(ocr=True, show_ad=False)
         det = ddddocr.DdddOcr(det=True, show_ad=False)
-        
+
         logger.info("初始化 Selenium")
         driver = init_selenium(debug=debug, linux=linux)
-        
+
         # 过 Selenium 检测
         with open("stealth.min.js", mode="r") as f:
             js = f.read()
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": js
         })
-        
+
         wait = WebDriverWait(driver, timeout)
         temp_dir = tempfile.mkdtemp(prefix="rainyun-")
         ctx = RuntimeContext(
@@ -468,7 +473,7 @@ def run_single_account(user, pwd, account_index=None):
                     return
             # 如果既没找到领取按钮，也没检测到已签到，说明页面结构可能变了
             raise Exception("未找到签到按钮，且未检测到已签到状态，可能页面结构已变更")
-        
+
         logger.info("处理验证码")
         try:
             ctx.wait.until(EC.frame_to_be_available_and_switch_to_it((By.ID, "tcaptcha_iframe_dy")))
@@ -481,12 +486,12 @@ def run_single_account(user, pwd, account_index=None):
             failed = captcha_retry_count[0]
             logger.error(f"验证码重试 {failed} 次后失败，任务终止。当前页面状态: {ctx.driver.current_url}")
             raise Exception(f"验证码重试 {failed} 次后失败，签到失败")
-        
+
         ctx.driver.switch_to.default_content()
-        
+
         # 等待积分显示
         time.sleep(3)
-        
+
         try:
             points_raw = ctx.wait.until(EC.visibility_of_element_located((By.XPATH,
                                      '//*[@id="app"]/div[1]/div[3]/div[2]/div/div/div[2]/div[1]/div[1]/div/p/div/h3'))).get_attribute(
@@ -496,16 +501,16 @@ def run_single_account(user, pwd, account_index=None):
             logger.info(f"当前剩余积分: {after_points} | +{earned} | 约为 {after_points / POINTS_TO_CNY_RATE:.2f} 元")
         except Exception as e:
             logger.warning(f"获取积分信息失败: {e}")
-        
+
         logger.info("任务执行成功！")
-        
+
     except Exception as e:
         logger.error(f"脚本执行异常终止: {e}")
         _failed = True
 
     finally:
         # === 清理资源 ===
-        
+
         # 1. 关闭浏览器
         if driver:
             try:
@@ -558,10 +563,11 @@ def run_single_account(user, pwd, account_index=None):
 
 
 def run():
-    """支持多账号签到，优先从 RAINYUN_ACCOUNTS 读取（格式: user1|pwd1&user2|pwd2）"""
+    """支持多账号签到，优先从 RAINYUN_ACCOUNTS 读取（格式: user1|pwd1&user2|pwd2）
+    每个账号失败后自动重试，重试次数由 CHECKIN_RETRY_LIMIT 控制（环境变量 CHECKIN_RETRY_LIMIT）"""
     # 方式1：单个变量多账号 (推荐)
     accounts_str = os.environ.get("RAINYUN_ACCOUNTS", "").strip()
-    
+
     if accounts_str:
         accounts = []
         for pair in accounts_str.split("&"):
@@ -585,11 +591,11 @@ def run():
             if u and p:
                 accounts = [(u, p)]
         logger.info(f"兼容模式: 共 {len(accounts)} 个账号")
-    
+
     if not accounts:
         logger.error("未找到任何账号配置，请设置 RAINYUN_ACCOUNTS 环境变量")
         return
-    
+
     all_summaries = []
     success_count = 0
     for idx, (user, pwd) in enumerate(accounts, 1):
@@ -597,26 +603,50 @@ def run():
             delay = random.randint(5, 15)
             logger.info(f"等待 {delay} 秒后处理下一个账号...")
             time.sleep(delay)
-        try:
-            result = run_single_account(user, pwd, account_index=idx if len(accounts) > 1 else None)
-            if result and result is not True:
-                # result 是摘要字符串
-                label = f"账号{idx}" if len(accounts) > 1 else ""
-                if label:
-                    all_summaries.append(f"【{label}】\n{result}")
-                else:
-                    all_summaries.append(result)
-                success_count += 1
+
+        # 重试逻辑：失败最多重试 CHECKIN_RETRY_LIMIT 次
+        account_label = f"账号{idx}" if len(accounts) > 1 else ""
+        max_retries = CHECKIN_RETRY_LIMIT
+        result = None
+        for attempt in range(max_retries + 1):  # 首次 + 重试次数
+            if attempt > 0:
+                retry_delay = CHECKIN_RETRY_DELAY
+                logger.warning(f"{account_label or '账号'} 第 {attempt} 次重试，等待 {retry_delay} 秒...")
+                time.sleep(retry_delay)
+                logger.info(f"━━━━━━ 重试执行 {account_label or '账号'} (第 {attempt}/{max_retries} 次) ━━━━━━")
+            try:
+                result = run_single_account(user, pwd, account_index=idx if len(accounts) > 1 else None)
+            except Exception as e:
+                logger.error(f"{account_label or '账号'} 执行异常 (尝试 {attempt + 1}/{max_retries + 1}): {e}")
+                result = None
+
+            # 判断本次是否成功
+            if result is not None and result is not True:
+                # 成功：有摘要返回
+                break
             elif result is True:
-                success_count += 1
+                break
+            # 失败：result 为 None，继续重试（除非已达上限）
+
+            if attempt < max_retries:
+                logger.warning(f"{account_label or '账号'} 第 {attempt + 1} 次尝试失败，准备重试...")
             else:
-                label = f"账号{idx}" if len(accounts) > 1 else ""
-                all_summaries.append(f"【{label}】签到失败")
-        except Exception as e:
-            logger.error(f"账号 {idx} 执行异常: {e}")
+                logger.error(f"{account_label or '账号'} 已重试 {max_retries} 次，仍然失败，放弃")
+
+        # 汇总结果
+        if result is not None and result is not True:
             label = f"账号{idx}" if len(accounts) > 1 else ""
-            all_summaries.append(f"【{label}】执行异常: {e}")
-    
+            if label:
+                all_summaries.append(f"【{label}】\n{result}")
+            else:
+                all_summaries.append(result)
+            success_count += 1
+        elif result is True:
+            success_count += 1
+        else:
+            label = f"账号{idx}" if len(accounts) > 1 else ""
+            all_summaries.append(f"【{label}】签到失败（重试 {max_retries} 次后仍失败）")
+
     # 汇总发送一条通知
     combined = "\n\n".join(all_summaries) if all_summaries else "无签到结果"
     title = f"雨云签到 {success_count}/{len(accounts)}成功"
