@@ -1,9 +1,9 @@
-name: Checkin
+﻿name: Checkin
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '50 20 * * *'
+    - cron: '50 21 * * *'
 
 jobs:
   checkin:
