@@ -44,6 +44,6 @@ DOWNLOAD_RETRY_DELAY = _read_float("DOWNLOAD_RETRY_DELAY", 2)
 
 DEFAULT_RENEW_COST_7_DAYS = _read_int("DEFAULT_RENEW_COST_7_DAYS", 2258)
 
-# 签到失败重试次数（不含首次，默认1次 = 最多尝试2次）
-CHECKIN_RETRY_LIMIT = _read_int("CHECKIN_RETRY_LIMIT", 1)
+# 签到失败重试次数（不含首次，默认2次 = 最多尝试3次）
+CHECKIN_RETRY_LIMIT = _read_int("CHECKIN_RETRY_LIMIT", 2)
 CHECKIN_RETRY_DELAY = _read_float("CHECKIN_RETRY_DELAY", 30.0)
